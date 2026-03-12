@@ -1,7 +1,7 @@
 ﻿@charset "UTF-8";
 
 /* CSS Style sheet of summer-fin.fet
-   Style sheet generated with FET 7.7.5 on 3/11/26 3:28 PM */
+   Style sheet generated with FET 7.7.5 on 3/12/26 10:57 PM */
 
 /* To do a page-break only after every second timetable, delete "page-break-before: always;" in "table.even_table". */
 /* Delete "page-break-before: always;" in "table.even_table" and in "table.odd_table" to skip page-breaks. */
@@ -1020,12 +1020,12 @@ td.c_186 { /* Activity id: 36 (subject+students) */
 }
 
 td.c_187 { /* Activity id: 37 (subject+students) */
- background-color: rgb(150, 126, 119);
+ background-color: rgb(214, 251, 131);
  color: black;
 }
 
 td.c_188 { /* Activity id: 38 (subject+students) */
- background-color: rgb(33, 141, 188);
+ background-color: rgb(86, 68, 192);
  color: white;
 }
 
@@ -1050,12 +1050,12 @@ td.c_192 { /* Activity id: 47 (subject+students) */
 }
 
 td.c_193 { /* Activity id: 48 (subject+students) */
- background-color: rgb(246, 48, 215);
+ background-color: rgb(77, 88, 245);
  color: white;
 }
 
 td.c_194 { /* Activity id: 49 (subject+students) */
- background-color: rgb(129, 72, 123);
+ background-color: rgb(247, 75, 0);
  color: white;
 }
 
