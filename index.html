@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#172d47">
-  <meta name="description" content="Orari mësimor i Fakultetit Filozofik, Universiteti i Prishtinës. Kërko sipas nën-grupit, mësimdhënësit ose sallës dhe gjej sallat e lira.">
+  <meta name="description" content="Orari mësimor i Fakultetit Filozofik, Universiteti i Prishtinës. Kërko sipas grupit të studentëve, mësimdhënësit ose sallës dhe gjej sallat e lira.">
   <title>Orari mësimor | Universiteti i Prishtinës</title>
   <style>
     :root{
@@ -131,7 +131,7 @@
     </div>
     <div class="eyebrow">Orari zyrtar · Universiteti i Prishtinës</div>
     <h1>Orari mësimor</h1>
-    <p class="hero-p">Gjej orarin e nën-grupit, mësimdhënësit ose sallës. Kontrollo cilat salla janë të lira gjatë kohës që të nevojitet.</p>
+    <p class="hero-p">Gjej orarin e grupit të studentëve, mësimdhënësit ose sallës. Kontrollo cilat salla janë të lira gjatë kohës që të nevojitet.</p>
     <div class="hero-bottom">
       <span class="count" id="statSubgroups"></span>
       <span class="count" id="statTeachers"></span>
@@ -151,7 +151,7 @@
   <section id="schedulesPanel" aria-labelledby="scheduleHeading">
     <div class="card filters">
       <h2 class="section-heading" id="scheduleHeading">Gjej orarin që të duhet</h2>
-      <p class="subheading">Zgjidh kategorinë dhe më pas personin, nën-grupin ose sallën.</p>
+      <p class="subheading">Zgjidh kategorinë dhe më pas personin, grupin e studentëve ose sallën.</p>
       <div class="fields">
         <div><label for="category">Kategoria</label>
           <select id="category">
@@ -164,7 +164,7 @@
           <input id="lookup" type="search" placeholder="Shkruaj për të filtruar..." autocomplete="off">
         </div>
         <div><label for="entity">Zgjidh orarin</label>
-          <select id="entity" aria-label="Zgjidh nën-grupin, mësimdhënësin ose sallën"></select>
+          <select id="entity" aria-label="Zgjidh grupin e studentëve, mësimdhënësin ose sallën"></select>
         </div>
       </div>
     </div>
@@ -230,7 +230,7 @@
   const normal = value => String(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("sq");
   const niceSort = (a,b) => a.l.localeCompare(b.l,"sq",{numeric:true,sensitivity:"base"});
   const ordered = {};
-  const categoryLabel = {subgroups:"Nën-grup",teachers:"Mësimdhënës",rooms:"Sallë"};
+  const categoryLabel = {subgroups:"Grupi i studentëve",teachers:"Mësimdhënës",rooms:"Sallë"};
   const state = {page:"schedules",type:"subgroups",item:null,view:matchMedia("(max-width: 750px)").matches ? "list":"week",query:""};
   // The three source files can be overwritten on GitHub Pages without changing this page.
   const FILENAMES = {
