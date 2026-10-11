@@ -155,7 +155,7 @@
       <div class="fields">
         <div><label for="category">Kategoria</label>
           <select id="category">
-            <option value="subgroups">Nën-grupet e studentëve</option>
+            <option value="subgroups">Grupet e studentëve</option>
             <option value="teachers">Mësimdhënësit</option>
             <option value="rooms">Sallat</option>
           </select>
@@ -238,7 +238,7 @@
     teachers:"WinterF_teachers_days_vertical.html",
     rooms:"WinterF_rooms_days_vertical.html"
   };
-  const KIND_LABELS = {subgroups:"nën-grupeve",teachers:"mësimdhënësve",rooms:"sallave"};
+  const KIND_LABELS = {subgroups:"grupeve",teachers:"mësimdhënësve",rooms:"sallave"};
 
   function parseMinutes(s){
     const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
@@ -470,7 +470,7 @@
       if(!data.rooms.length)throw Error("Nuk ka salla në orarin zyrtar. Nuk mund të llogaritet disponueshmëria.");
       document.documentElement.style.setProperty("--day-count",data.days.length);
       document.documentElement.style.setProperty("--timetable-height",`${(data.times.length-1)*15}px`);
-      $("statSubgroups").textContent=data.subgroups.length+" nën-grupe";
+      $("statSubgroups").textContent=data.subgroups.length+" grupe";
       $("statTeachers").textContent=data.teachers.length+" mësimdhënës";
       $("statRooms").textContent=data.rooms.length+" salla";
       $("updateDate").textContent="FET · "+data.date;
