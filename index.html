@@ -148,6 +148,18 @@
     <button type="button" class="nav-btn refresh-btn" id="refreshFiles" title="Rifresko të dhënat e fundit">↻ Rifresko të dhënat</button>
   </nav>
 
+  <section class="card filters" aria-labelledby="bookingsHeading">
+    <h2 id="bookingsHeading" class="section-heading">Rezervimet e sallave</h2>
+    <p class="subheading">Rezervimet vlejnë vetëm për datën e shënuar. Orari mësimor më poshtë paraqet javën e zakonshme.</p>
+    <label for="bookingDate">Data e rezervimeve dhe e kërkimit të sallave të lira</label>
+    <input type="date" id="bookingDate">
+    <p id="bookingStatus" role="status" aria-live="polite">Duke ngarkuar rezervimet…</p>
+    <div style="overflow-x:auto"><table style="width:100%;text-align:left" aria-label="Rezervimet për datën e zgjedhur">
+      <thead><tr><th>Ora</th><th>Salla</th><th>Rezervimi</th><th>Data</th></tr></thead>
+      <tbody id="bookingRows"></tbody>
+    </table></div>
+  </section>
+
   <section id="schedulesPanel" aria-labelledby="scheduleHeading">
     <div class="card filters">
       <h2 class="section-heading" id="scheduleHeading">Gjej orarin që të duhet</h2>
@@ -194,7 +206,7 @@
       <h2 class="section-heading" id="freeHeading">Gjej sallat e lira</h2>
       <p class="subheading">Një sallë shfaqet si e lirë vetëm kur nuk ka asnjë aktivitet të planifikuar në të gjithë intervalin e zgjedhur.</p>
       <div class="free-filters">
-        <div><label for="freeDay">Dita e javës</label><select id="freeDay"></select></div>
+        <div><label for="freeDay">Dita (sipas datës së zgjedhur)</label><select id="freeDay" disabled></select></div>
         <div><label for="freeStart">Nga ora</label><select id="freeStart"></select></div>
         <div><label for="freeEnd">Deri në orën</label><select id="freeEnd"></select></div>
       </div>
@@ -206,7 +218,7 @@
           <div><div id="freeCount" class="availability-count"></div><div id="freeSummary" class="availability-meta"></div></div>
         </div>
         <div id="roomResults" class="room-list"></div>
-        <p class="hint">Disponueshmëria llogaritet vetëm nga orari i fundit zyrtar. Nuk përfshin rezervime të jashtme, ndryshime të paparashikuara apo kufizime që nuk shfaqen në këtë orar. Kliko një sallë për ta parë orarin e saj.</p>
+        <p class="hint">Disponueshmëria për datën e zgjedhur përfshin orarin zyrtar dhe rezervimet në aplikacion. Rezervimi përfundimtar bëhet në aplikacionin e rezervimeve. Kliko një sallë për ta parë orarin e saj.</p>
       </div>
     </div>
   </section>
@@ -221,10 +233,34 @@
   </div>
 </dialog>
 <!-- Timetables are loaded directly from three files in the same folder. -->
-<script>
+<script type="module">
+import {localDate, overlaps, dayIndex} from './booking-model.js';
 (() => {
   "use strict";
   let data;
+  let publicState = {status:'loading'};
+  function renderBookings(result) {
+    publicState = result;
+    const rows = result.status === 'ready' ? result.rows : [];
+    $('bookingRows').innerHTML = rows.map(b => `<tr><td>${esc(b.slots.map(p => `${p.start}–${p.end}`).join(', '))}</td><td>${esc(b.room)}</td><td>${esc(b.title)}</td><td>${esc(b.date)}</td></tr>`).join('');
+    $('bookingStatus').textContent = result.status === 'ready'
+      ? (rows.length ? `${rows.length} rezervime më ${result.date}.` : `Nuk ka rezervime më ${result.date}.`)
+      : result.status === 'loading' ? 'Duke ngarkuar rezervimet…' : result.message;
+    renderFree();
+  }
+  async function startBookings() {
+    $('bookingDate').value = localDate();
+    try {
+      const [{connectBookings}, {default:config}] = await Promise.all([import('./public-bookings.js'), import('./firebase-config.js')]);
+      await connectBookings(config, selectDate => {
+        $('bookingDate').addEventListener('change', () => selectDate($('bookingDate').value));
+        selectDate($('bookingDate').value);
+      }, renderBookings);
+    } catch(error) {
+      console.error(error);
+      renderBookings({status:'error', message:'Rezervimet nuk u ngarkuan. Disponueshmëria nuk mund të verifikohet.'});
+    }
+  }
   const $ = id => document.getElementById(id);
   const esc = input => String(input ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const normal = value => String(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("sq");
@@ -411,13 +447,25 @@
     $("detailDialog").showModal();
   }
   function renderFree(){
-    const d=Number($("freeDay").value),s=Number($("freeStart").value),e=Number($("freeEnd").value);
+    const day = publicState.day;
+    const d = day ? dayIndex(data.days, day.weekday) : -1;
+    $("freeDay").value = String(d);
+    const s=Number($("freeStart").value),e=Number($("freeEnd").value);
     const invalid = e<=s;
     $("freeError").hidden=!invalid;$("freeValid").hidden=invalid;
     if(invalid)return;
-    const free=ordered.rooms.filter(room => !room.e.some(event=>event.d===d&&event.s<e&&event.e>s));
+    const unavailable = publicState.status !== 'ready' || !day || (day.fetActive && d < 0);
+    if (unavailable || !day.bookingAllowed) {
+      $('freeCount').textContent = unavailable ? 'Disponueshmëria nuk mund të verifikohet' : 'Data është e mbyllur për rezervime';
+      $('freeSummary').textContent = $('bookingDate').value;
+      $('roomResults').replaceChildren();
+      return;
+    }
+    const free=ordered.rooms.filter(room => publicState.rooms.some(r => r.name === room.n) &&
+      (!day.fetActive || !room.e.some(event=>event.d===d&&event.s<e&&event.e>s)) &&
+      !publicState.rows.some(b => overlaps(b,room.n,data.times[s],data.times[e])));
     $("freeCount").textContent=`${free.length} nga ${data.rooms.length} salla të lira`;
-    $("freeSummary").textContent=`${data.days[d]} · ${data.times[s]}–${data.times[e]}`;
+    $("freeSummary").textContent=`${publicState.date} · ${data.times[s]}–${data.times[e]}`;
     $("roomResults").innerHTML=free.length?
       free.map(room=>`<button type="button" class="room-choice" data-room="${esc(room.n)}"><span>${esc(room.l)}</span><span class="arrow" aria-hidden="true">↗</span></button>`).join("") :
       `<div class="card empty-state" style="grid-column:1/-1"><strong>Nuk ka salla të lira</strong>Provo një interval më të shkurtër ose një orar tjetër.</div>`;
@@ -475,6 +523,7 @@
       $("statRooms").textContent=data.rooms.length+" salla";
       $("updateDate").textContent="FET · "+data.date;
       initFree();
+      startBookings();
       state.suspendHash=true;setCategory("subgroups");routeFromHash();state.suspendHash=false;
       if(!location.hash)setHash();
       window.addEventListener("hashchange",routeFromHash);
