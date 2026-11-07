@@ -1,0 +1,130 @@
+# Public schedule integration
+
+This is an updated copy of `filozofiku/filozofiku.github.io/index.html`, fetched on
+2026-10-23. It retains the existing weekly timetable and adds live, date-specific
+reservations to the room weekly and list views. The free-room search uses that same date, ignores recurring
+classes on configured holidays, and refuses to claim availability when the feed
+is unavailable or the date is not configured. It uses only room names shared by
+Firebase and the HTML schedule. Keep the HTML exports and Firebase FET import in
+sync; changing one does not update the other.
+
+Reservations appear in the calendars and lists of every selected room, teacher and
+student group. Rooms, groups and teachers are optional. All reservations appear under “Rezervimet”, with or without a room, including
+those without any selected group or teacher. This category supports both weekly
+and list views for the selected week and preserves the normal event details. The date
+selector chooses a Monday–Sunday calendar week; reservations never repeat in
+other weeks. Clicking a reservation shows the reserver’s Google display name and
+the original server timestamp, formatted in Europe/Tirane time. Existing names
+are backfilled from Firebase Authentication; missing historical data is labeled
+as unavailable. Adjacent periods display as one time range.
+Dates do not repeat weekly. The three generated FET HTML files need no edits.
+
+## Upgrading to resources-v2
+
+Follow the migration/deployment order at the top of the booking repository README.
+The new public adapter reads `resourceCatalog/current` in addition to the existing
+feed. Every reservation remains visible regardless of `isPublic`; that flag only
+records the email-notification choice, and no email is sent. The event modal shows
+its type, selected resources, physical/online mode and safe HTTP(S) meeting link.
+Legacy room-only bookings continue to render.
+
+## Initial publication (historical setup)
+
+1. Review and deploy the updated `firestore.rules` from the booking repository:
+   `firebase deploy --only firestore:rules --project YOUR_PROJECT_ID`.
+2. Build and publish the updated booking app (`npm run build`, then the existing
+   GitHub Pages workflow). The app now creates and deletes `publicBookings` in the
+   same transaction as the private booking. Old app versions cannot create or
+   cancel bookings under these rules; reload open booking tabs after deployment.
+3. Preview existing reservations with `node backfill-public-bookings.mjs`, using
+   the same Admin credentials as the importer. Then publish them with
+   `node backfill-public-bookings.mjs --apply`. The script rechecks each reservation
+   transactionally so concurrent cancellations cannot recreate public entries.
+4. Run `node scripts/configure-public-schedule.mjs` to regenerate the public web
+   config from `.env` (also accepts the existing `VITE_FIREBASE_*` environment
+   variables). This publishes only Firebase web configuration, never Admin keys.
+5. Copy these four files into the root of `filozofiku/filozofiku.github.io`:
+   `index.html`, `booking-model.js`, `public-bookings.js`, `firebase-config.js`.
+   Keep the three existing `WinterF_*.html` exports beside them.
+   Commit and publish using that repository's existing GitHub Pages setup.
+6. Open the public page without signing in. Choose a date, create a reservation in
+   the booking app, and select its room and check that it appears in both views and removes the room
+   from overlapping free-room searches. Cancel it and check that both update.
+
+Public readers can read only the sanitized `publicBookings`, room/period metadata,
+and individual calendar dates. Private reservation UIDs and account data remain
+restricted. Booking titles, reserver display names and creation timestamps are intentionally
+public; the booking form says so. Emails and account UIDs are not published.
+The feed uses Firebase listeners and consumes Firestore reads for public visitors.
+No Cloud Functions or paid server is required by this implementation.
+
+## Checks
+
+Run `node --test tests/booking-model.test.mjs` and `npm run build` in the booking
+repository. Security integration tests are in `tests/public-bookings.rules.mjs`;
+they require Firebase CLI, Java 21+, and `@firebase/rules-unit-testing`. Run them
+against the local Firestore emulator, never the production project.
+
+### Requests for special rooms
+
+Salla 102 and Salla 127 require approval for regular users. Pending
+`reservationRequests` are private and do not occupy any resource or appear in
+`publicBookings`. Users with `canCancelAll` can book these rooms directly or
+review requests in the booking app. Both decisions require a reason.
+Approval atomically rechecks availability, creates the reservation under the
+requester's identity, publishes it, locks the resources, and deletes the request.
+Rejection deletes the request without creating a reservation. Private immutable
+`requestDecisions` retain the reason for the requester and administrators.
+Approval and rejection decisions queue an Albanian email to the requester with
+the reason and reviewer’s name. The existing scheduled worker sends these on its
+next available run, with the same retry and duplicate-suppression mechanism as
+cancellation notifications. Decisions made before this feature was enabled are
+not emailed retrospectively. Existing public-event notifications apply only after
+approval, because only then is a public booking created.
+
+Regular users may edit an approved reservation's descriptive details, but changes
+to its special room, date, periods, groups, or teachers require administrator
+handling or a new request. A new request does not replace or cancel an existing
+reservation. The room IDs are listed in `src/reservation-requests.js` and enforced
+independently in `firestore.rules`.
+
+New special-room requests atomically queue a private `requestNotifications` entry.
+The existing scheduled mail worker notifies `bardhok.bashota@uni-pr.edu` in Albanian
+with the requester, activity, room, date/time, description and booking-app link.
+The recipient is fixed in the worker, not supplied by the requesting browser.
+The notification survives review/deletion of the request and uses the existing
+retry and duplicate-suppression mechanism. Delivery can be delayed until the next
+worker run. Requests submitted before this change are not backfilled.
+
+## Mobile Today view
+
+`#sot` shows today's scheduled classes and confirmed reservations, ongoing events,
+and currently free rooms. Dates and clocks use Europe/Tirane; the view updates
+its clock every 30 seconds and reloads today's feed at midnight. Room links select
+the next full period and up to 90 available minutes. Availability requires a
+confirmed live feed and an open calendar date. Existing booking permissions and
+special-room approvals still apply. Test with `node tests/today.browser.mjs`
+(`TEST_MODULES_DIR` may point to the Playwright installation; the public repo's
+HTML exports are expected in `/tmp/fet-schedule-publish`).
+
+## Public-site languages
+
+The upper-right language picker offers Albanian (default) and English and stores
+its selection locally. `i18n.js` contains interface translations;
+`timetable-en.js` contains display translations for official courses and student
+programmes. Add translations there when new official names are introduced.
+Translated labels never replace resource names used for matching, URLs, or
+bookings. Personal names and organizer-written event titles/descriptions remain
+as entered. The booking application shares the language preference and uses
+`src/booking-i18n.js` for its interface. All outgoing email templates remain in
+Albanian. Calendar controls on the public site follow the selected language.
+
+Check switching, saved preferences, search, modal details, dates and mobile layout
+with `TEST_MODULES_DIR=/path/to/test-dependencies node tests/language.browser.mjs`
+while serving the public timetable at `http://127.0.0.1:8765` (or `PREVIEW_URL`).
+
+## Live Google Calendar subscriptions
+
+The calendar action subscribes to one activity's read-only feed. Classes repeat weekly through 31 December 2026 at Europe/Tirane wall time; reservations do not repeat. Changes and cancellations appear when Google refreshes the subscription. Existing imported copies remain independent. Downloads are labelled as local snapshots.
+
+`calendar-config.json` supplies the separately deployed Apps Script `/exec` endpoint. See [`calendar-service/README.md`](../calendar-service/README.md) in the booking repository for deployment instructions. The endpoint uses only public data and has no email access. `calendar-classes.json` maps official activities to stable FET IDs. The public-site Actions workflow rebuilds this catalog on every deployment; when changing CSV metadata, regenerate it with the CSV before publishing to preserve original activity IDs.
